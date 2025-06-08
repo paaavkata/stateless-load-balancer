@@ -2,7 +2,9 @@ package balancer
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -11,10 +13,47 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
-func GetASGInstances(asgName, region string) []string {
+const (
+	maxRetries = 3
+	retryDelay = time.Second
+)
+
+func GetASGInstancesWithRetry(asgName, region string) ([]string, error) {
+	var instances []string
+	var err error
+
+	for i := 0; i < maxRetries; i++ {
+		instances, err = GetASGInstances(asgName, region)
+		if err == nil {
+			return instances, nil
+		}
+		log.Printf("Attempt %d failed to get ASG instances: %v", i+1, err)
+		time.Sleep(retryDelay * time.Duration(i+1))
+	}
+
+	return nil, err
+}
+
+func GetInstancesByTagWithRetry(tagKey, tagValue, region string) ([]string, error) {
+	var instances []string
+	var err error
+
+	for i := 0; i < maxRetries; i++ {
+		instances, err = GetInstancesByTag(tagKey, tagValue, region)
+		if err == nil {
+			return instances, nil
+		}
+		log.Printf("Attempt %d failed to get instances by tag: %v", i+1, err)
+		time.Sleep(retryDelay * time.Duration(i+1))
+	}
+
+	return nil, err
+}
+
+func GetASGInstances(asgName, region string) ([]string, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
+		return nil, fmt.Errorf("unable to load SDK config: %v", err)
 	}
 
 	asgSvc := autoscaling.NewFromConfig(cfg)
@@ -24,7 +63,7 @@ func GetASGInstances(asgName, region string) []string {
 
 	asgResult, err := asgSvc.DescribeAutoScalingGroups(context.TODO(), asgInput)
 	if err != nil {
-		log.Fatalf("unable to describe ASG, %v", err)
+		return nil, fmt.Errorf("unable to describe ASG: %v", err)
 	}
 
 	var instanceIds []string
@@ -41,7 +80,7 @@ func GetASGInstances(asgName, region string) []string {
 
 	ec2Result, err := ec2Svc.DescribeInstances(context.TODO(), ec2Input)
 	if err != nil {
-		log.Fatalf("unable to describe EC2 instances, %v", err)
+		return nil, fmt.Errorf("unable to describe EC2 instances: %v", err)
 	}
 
 	var instances []string
@@ -51,13 +90,13 @@ func GetASGInstances(asgName, region string) []string {
 		}
 	}
 
-	return instances
+	return instances, nil
 }
 
-func GetInstancesByTag(tagKey, tagValue, region string) []string {
+func GetInstancesByTag(tagKey, tagValue, region string) ([]string, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
+		return nil, fmt.Errorf("unable to load SDK config: %v", err)
 	}
 
 	ec2Svc := ec2.NewFromConfig(cfg)
@@ -72,7 +111,7 @@ func GetInstancesByTag(tagKey, tagValue, region string) []string {
 
 	result, err := ec2Svc.DescribeInstances(context.TODO(), input)
 	if err != nil {
-		log.Fatalf("unable to describe EC2 instances, %v", err)
+		return nil, fmt.Errorf("unable to describe EC2 instances: %v", err)
 	}
 
 	var instances []string
@@ -82,5 +121,5 @@ func GetInstancesByTag(tagKey, tagValue, region string) []string {
 		}
 	}
 
-	return instances
+	return instances, nil
 }
