@@ -41,6 +41,9 @@ type Config struct {
 
 	// Graceful shutdown configuration
 	ShutdownTimeout int `mapstructure:"SHUTDOWN_TIMEOUT"`
+
+	// Logging configuration
+	LogConnections bool `mapstructure:"LOG_CONNECTIONS"`
 }
 
 func initConfig() Config {
@@ -75,6 +78,9 @@ func initConfig() Config {
 	// Graceful shutdown configuration defaults
 	viper.SetDefault("SHUTDOWN_TIMEOUT", 30)
 
+	// Logging configuration defaults
+	viper.SetDefault("LOG_CONNECTIONS", false)
+
 	var config Config
 	if err := viper.Unmarshal(&config); err != nil {
 		log.Fatalf("Unable to unmarshal configuration: %v", err)
@@ -102,6 +108,7 @@ func main() {
 		config.PoolTimeout,
 		config.CircuitBreakerThreshold,
 		config.CircuitBreakerTimeout,
+		config.LogConnections,
 	)
 
 	// Start the health check routine

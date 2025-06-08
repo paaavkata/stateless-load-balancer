@@ -32,6 +32,7 @@ type LoadBalancer struct {
 	wg                    sync.WaitGroup
 	ctx                   context.Context
 	cancel                context.CancelFunc
+	logConnections        bool
 }
 
 func NewLoadBalancer(
@@ -48,7 +49,8 @@ func NewLoadBalancer(
 	poolSize,
 	poolTimeout,
 	circuitBreakerThreshold,
-	circuitBreakerTimeout int) *LoadBalancer {
+	circuitBreakerTimeout int,
+	logConnections bool) *LoadBalancer {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &LoadBalancer{
 		healthCheckCh:         make(chan struct{}),
@@ -67,6 +69,7 @@ func NewLoadBalancer(
 		connectionPool:        NewConnectionPool(poolSize, time.Duration(poolTimeout)*time.Second),
 		ctx:                   ctx,
 		cancel:                cancel,
+		logConnections:        logConnections,
 	}
 }
 
@@ -196,7 +199,7 @@ func (lb *LoadBalancer) handleConnection(conn net.Conn) {
 	go func() {
 		defer wg.Done()
 		_, err := io.Copy(targetConn, conn)
-		if err != nil {
+		if err != nil && lb.logConnections {
 			log.Printf("[INFO] Client->Target closed %s: %v", target, err)
 		}
 		targetConn.Close()
@@ -206,7 +209,7 @@ func (lb *LoadBalancer) handleConnection(conn net.Conn) {
 	go func() {
 		defer wg.Done()
 		_, err := io.Copy(conn, targetConn)
-		if err != nil {
+		if err != nil && lb.logConnections {
 			log.Printf("[INFO] Target->Client closed %s: %v", target, err)
 		}
 		conn.Close()

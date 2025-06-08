@@ -53,6 +53,7 @@ The load balancer is configured using the following environment variables:
 | `CIRCUIT_BREAKER_THRESHOLD`    | Number of failures before opening the circuit breaker.                      | 5             |
 | `CIRCUIT_BREAKER_TIMEOUT`      | Time (in minutes) before the circuit breaker resets.                        | 5             |
 | `SHUTDOWN_TIMEOUT`             | Timeout (in seconds) for graceful shutdown.                                 | 30            |
+| `LOG_CONNECTIONS`              | Whether to log connection closure events. Useful for debugging.             | false         |
 
 ## Health Checks
 
